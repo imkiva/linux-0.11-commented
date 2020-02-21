@@ -408,5 +408,8 @@ void sched_init(void)
 	outb(LATCH >> 8 , 0x40);	/* MSB */
 	set_intr_gate(0x20,&timer_interrupt);
 	outb(inb_p(0x21)&~0x01,0x21);
+
+	// 设置 int 0x80 中断的处理函数
+	// kernel/system_call.s
 	set_system_gate(0x80,&system_call);
 }

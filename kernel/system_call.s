@@ -58,7 +58,7 @@ sa_mask = 4
 sa_flags = 8
 sa_restorer = 12
 
-nr_system_calls = 74
+nr_system_calls = 72
 
 /*
  * Ok, I get parallel printer interrupts while using the floppy for some
@@ -70,33 +70,34 @@ nr_system_calls = 74
 
 .align 2
 bad_sys_call:
-	movl $-1,%eax
+	movl $-1,%eax  # ireturn -1
 	iret
 .align 2
 reschedule:
 	pushl $ret_from_sys_call
 	jmp schedule
 .align 2
+# int 0x80 中断处理入口
 system_call:
 	cmpl $nr_system_calls-1,%eax
 	ja bad_sys_call
-	push %ds
-	push %es
-	push %fs
-	pushl %edx
-	pushl %ecx		# push %ebx,%ecx,%edx as parameters
-	pushl %ebx		# to the system call
-	movl $0x10,%edx		# set up ds,es to kernel space
+	push %ds            # 保存用户态的 ds
+	push %es            # 保存用户态的 es
+	push %fs            # 保存用户态的 fs
+	pushl %edx          # 系统调用最多有三个参数，分别保存在
+	pushl %ecx		    # ebx, ecx, edx 这三个寄存器之中
+	pushl %ebx		    # 将他们压栈传递给对应的系统调用函数
+	movl $0x10,%edx		# set up ds, es to kernel space
 	mov %dx,%ds
 	mov %dx,%es
 	movl $0x17,%edx		# fs points to local data space
 	mov %dx,%fs
-	call *sys_call_table(,%eax,4)
-	pushl %eax
-	movl current,%eax
-	cmpl $0,state(%eax)		# state
+	call *sys_call_table(,%eax,4)  # 根据偏移调用相应的系统调用函数
+	pushl %eax                     # 将返回结果压栈，然后重新调度进程
+	movl current,%eax       # current 是当前进程
+	cmpl $0,state(%eax)		# if (current->state != TASK_RUNNING)
 	jne reschedule
-	cmpl $0,counter(%eax)		# counter
+	cmpl $0,counter(%eax)   # if (current->counter == 0) // counter 代表时间片
 	je reschedule
 ret_from_sys_call:
 	movl current,%eax		# task[0] cannot have signals
@@ -118,14 +119,14 @@ ret_from_sys_call:
 	pushl %ecx
 	call do_signal
 	popl %eax
-3:	popl %eax
-	popl %ebx
-	popl %ecx
-	popl %edx
-	pop %fs
-	pop %es
-	pop %ds
-	iret
+3:	popl %eax      # 恢复目标进程的 eax
+	popl %ebx      # 恢复目标进程的 ebx
+	popl %ecx      # 恢复目标进程的 ecx
+	popl %edx      # 恢复目标进程的 edx
+	pop %fs        # 恢复目标进程的 fs
+	pop %es        # 恢复目标进程的 es
+	pop %ds        # 恢复目标进程的 ds
+	iret           # 切换到用户栈，设置 cs:ip 到用户程序
 
 .align 2
 coprocessor_error:
