@@ -70,217 +70,218 @@ nr_system_calls = 72
 
 .align 2
 bad_sys_call:
-	movl $-1,%eax  # ireturn -1
-	iret
+    movl $-1,%eax  # ireturn -1
+    iret
 .align 2
 reschedule:
-	pushl $ret_from_sys_call
-	jmp schedule
+    pushl $ret_from_sys_call
+    jmp schedule
 .align 2
 # int 0x80 中断处理入口
 system_call:
-	cmpl $nr_system_calls-1,%eax
-	ja bad_sys_call
-	push %ds            # 保存用户态的 ds
-	push %es            # 保存用户态的 es
-	push %fs            # 保存用户态的 fs
-	pushl %edx          # 系统调用最多有三个参数，分别保存在
-	pushl %ecx		    # ebx, ecx, edx 这三个寄存器之中
-	pushl %ebx		    # 将他们压栈传递给对应的系统调用函数
-	movl $0x10,%edx		# set up ds, es to kernel space
-	mov %dx,%ds
-	mov %dx,%es
-	movl $0x17,%edx		# fs points to local data space
-	mov %dx,%fs
-	call *sys_call_table(,%eax,4)  # 根据偏移调用相应的系统调用函数
-	pushl %eax                     # 将返回结果压栈，然后重新调度进程
-	movl current,%eax       # current 是当前进程
-	cmpl $0,state(%eax)		# if (current->state != TASK_RUNNING)
-	jne reschedule
-	cmpl $0,counter(%eax)   # if (current->counter == 0) // counter 代表时间片
-	je reschedule
+    cmpl $nr_system_calls-1,%eax
+    ja bad_sys_call
+    push %ds            # 保存用户态的 ds
+    push %es            # 保存用户态的 es
+    push %fs            # 保存用户态的 fs
+    pushl %edx          # 系统调用最多有三个参数，分别保存在
+    pushl %ecx		    # ebx, ecx, edx 这三个寄存器之中
+    pushl %ebx		    # 将他们压栈传递给对应的系统调用函数
+    movl $0x10,%edx		# set up ds, es to kernel space
+    mov %dx,%ds
+    mov %dx,%es
+    movl $0x17,%edx		# fs points to local data space
+    mov %dx,%fs
+    call *sys_call_table(,%eax,4)  # 根据偏移调用相应的系统调用函数
+    pushl %eax                     # 将返回结果压栈，然后重新调度进程
+    movl current,%eax       # current 是当前进程
+    cmpl $0,state(%eax)		# if (current->state != TASK_RUNNING)
+    jne reschedule
+    cmpl $0,counter(%eax)   # if (current->counter == 0) // counter 代表时间片
+    je reschedule
 ret_from_sys_call:
-	movl current,%eax		# task[0] cannot have signals
-	cmpl task,%eax
-	je 3f
-	cmpw $0x0f,CS(%esp)		# was old code segment supervisor ?
-	jne 3f
-	cmpw $0x17,OLDSS(%esp)		# was stack segment = 0x17 ?
-	jne 3f
-	movl signal(%eax),%ebx
-	movl blocked(%eax),%ecx
-	notl %ecx
-	andl %ebx,%ecx
-	bsfl %ecx,%ecx
-	je 3f
-	btrl %ecx,%ebx
-	movl %ebx,signal(%eax)
-	incl %ecx
-	pushl %ecx
-	call do_signal
-	popl %eax
+    movl current,%eax		# task[0] cannot have signals
+    cmpl task,%eax
+    je 3f
+    cmpw $0x0f,CS(%esp)		# was old code segment supervisor ?
+    jne 3f
+    cmpw $0x17,OLDSS(%esp)		# was stack segment = 0x17 ?
+    jne 3f
+    movl signal(%eax),%ebx
+    movl blocked(%eax),%ecx
+    notl %ecx
+    andl %ebx,%ecx
+    bsfl %ecx,%ecx
+    je 3f
+    btrl %ecx,%ebx
+    movl %ebx,signal(%eax)
+    incl %ecx
+    pushl %ecx
+    call do_signal
+    popl %eax
 3:	popl %eax      # 恢复目标进程的 eax
-	popl %ebx      # 恢复目标进程的 ebx
-	popl %ecx      # 恢复目标进程的 ecx
-	popl %edx      # 恢复目标进程的 edx
-	pop %fs        # 恢复目标进程的 fs
-	pop %es        # 恢复目标进程的 es
-	pop %ds        # 恢复目标进程的 ds
-	iret           # 切换到用户栈，设置 cs:ip 到用户程序
+    popl %ebx      # 恢复目标进程的 ebx
+    popl %ecx      # 恢复目标进程的 ecx
+    popl %edx      # 恢复目标进程的 edx
+    pop %fs        # 恢复目标进程的 fs
+    pop %es        # 恢复目标进程的 es
+    pop %ds        # 恢复目标进程的 ds
+    iret           # 切换到用户栈，设置 cs:ip 到用户程序
 
 .align 2
 coprocessor_error:
-	push %ds
-	push %es
-	push %fs
-	pushl %edx
-	pushl %ecx
-	pushl %ebx
-	pushl %eax
-	movl $0x10,%eax
-	mov %ax,%ds
-	mov %ax,%es
-	movl $0x17,%eax
-	mov %ax,%fs
-	pushl $ret_from_sys_call
-	jmp math_error
+    push %ds
+    push %es
+    push %fs
+    pushl %edx
+    pushl %ecx
+    pushl %ebx
+    pushl %eax
+    movl $0x10,%eax
+    mov %ax,%ds
+    mov %ax,%es
+    movl $0x17,%eax
+    mov %ax,%fs
+    pushl $ret_from_sys_call
+    jmp math_error
 
 .align 2
 device_not_available:
-	push %ds
-	push %es
-	push %fs
-	pushl %edx
-	pushl %ecx
-	pushl %ebx
-	pushl %eax
-	movl $0x10,%eax
-	mov %ax,%ds
-	mov %ax,%es
-	movl $0x17,%eax
-	mov %ax,%fs
-	pushl $ret_from_sys_call
-	clts				# clear TS so that we can use math
-	movl %cr0,%eax
-	testl $0x4,%eax			# EM (math emulation bit)
-	je math_state_restore
-	pushl %ebp
-	pushl %esi
-	pushl %edi
-	call math_emulate
-	popl %edi
-	popl %esi
-	popl %ebp
-	ret
+    push %ds
+    push %es
+    push %fs
+    pushl %edx
+    pushl %ecx
+    pushl %ebx
+    pushl %eax
+    movl $0x10,%eax
+    mov %ax,%ds
+    mov %ax,%es
+    movl $0x17,%eax
+    mov %ax,%fs
+    pushl $ret_from_sys_call
+    clts				# clear TS so that we can use math
+    movl %cr0,%eax
+    testl $0x4,%eax			# EM (math emulation bit)
+    je math_state_restore
+    pushl %ebp
+    pushl %esi
+    pushl %edi
+    call math_emulate
+    popl %edi
+    popl %esi
+    popl %ebp
+    ret
 
 .align 2
 timer_interrupt:
-	push %ds		# save ds,es and put kernel data space
-	push %es		# into them. %fs is used by _system_call
-	push %fs
-	pushl %edx		# we save %eax,%ecx,%edx as gcc doesn't
-	pushl %ecx		# save those across function calls. %ebx
-	pushl %ebx		# is saved as we use that in ret_sys_call
-	pushl %eax
-	movl $0x10,%eax
-	mov %ax,%ds
-	mov %ax,%es
-	movl $0x17,%eax
-	mov %ax,%fs
-	incl jiffies
-	movb $0x20,%al		# EOI to interrupt controller #1
-	outb %al,$0x20
-	movl CS(%esp),%eax
-	andl $3,%eax		# %eax is CPL (0 or 3, 0=supervisor)
-	pushl %eax
-	call do_timer		# 'do_timer(long CPL)' does everything from
-	addl $4,%esp		# task switching to accounting ...
-	jmp ret_from_sys_call
+    push %ds		# save ds,es and put kernel data space
+    push %es		# into them. %fs is used by _system_call
+    push %fs
+    pushl %edx		# we save %eax,%ecx,%edx as gcc doesn't
+    pushl %ecx		# save those across function calls. %ebx
+    pushl %ebx		# is saved as we use that in ret_sys_call
+    pushl %eax
+    movl $0x10,%eax
+    mov %ax,%ds
+    mov %ax,%es
+    movl $0x17,%eax
+    mov %ax,%fs
+    incl jiffies
+    movb $0x20,%al		# EOI to interrupt controller #1
+    outb %al,$0x20
+    movl CS(%esp),%eax
+    andl $3,%eax		# %eax is CPL (0 or 3, 0=supervisor)
+    pushl %eax
+    call do_timer		# 'do_timer(long CPL)' does everything from
+    addl $4,%esp		# task switching to accounting ...
+    jmp ret_from_sys_call
 
 .align 2
 sys_execve:
-	lea EIP(%esp),%eax
-	pushl %eax
-	call do_execve
-	addl $4,%esp
-	ret
+    lea EIP(%esp),%eax
+    pushl %eax
+    call do_execve
+    addl $4,%esp
+    ret
 
 .align 2
 sys_fork:
-	call find_empty_process
-	testl %eax,%eax
-	js 1f
-	push %gs
-	pushl %esi
-	pushl %edi
-	pushl %ebp
-	pushl %eax
-	call copy_process
-	addl $20,%esp
+    call find_empty_process
+    testl %eax,%eax
+    js 1f
+    push %gs
+    pushl %esi
+    pushl %edi
+    pushl %ebp
+    pushl %eax
+    call copy_process	# 这个函数接受了一堆参数，但这里没有压栈，
+                        # 是因为进入 syscall 的时候，这些寄存器就已经在内核栈里了
+    addl $20,%esp
 1:	ret
 
 hd_interrupt:
-	pushl %eax
-	pushl %ecx
-	pushl %edx
-	push %ds
-	push %es
-	push %fs
-	movl $0x10,%eax
-	mov %ax,%ds
-	mov %ax,%es
-	movl $0x17,%eax
-	mov %ax,%fs
-	movb $0x20,%al
-	outb %al,$0xA0		# EOI to interrupt controller #1
-	jmp 1f			# give port chance to breathe
+    pushl %eax
+    pushl %ecx
+    pushl %edx
+    push %ds
+    push %es
+    push %fs
+    movl $0x10,%eax
+    mov %ax,%ds
+    mov %ax,%es
+    movl $0x17,%eax
+    mov %ax,%fs
+    movb $0x20,%al
+    outb %al,$0xA0		# EOI to interrupt controller #1
+    jmp 1f			# give port chance to breathe
 1:	jmp 1f
 1:	xorl %edx,%edx
-	xchgl do_hd,%edx
-	testl %edx,%edx
-	jne 1f
-	movl $unexpected_hd_interrupt,%edx
+    xchgl do_hd,%edx
+    testl %edx,%edx
+    jne 1f
+    movl $unexpected_hd_interrupt,%edx
 1:	outb %al,$0x20
-	call *%edx		# "interesting" way of handling intr.
-	pop %fs
-	pop %es
-	pop %ds
-	popl %edx
-	popl %ecx
-	popl %eax
-	iret
+    call *%edx		# "interesting" way of handling intr.
+    pop %fs
+    pop %es
+    pop %ds
+    popl %edx
+    popl %ecx
+    popl %eax
+    iret
 
 floppy_interrupt:
-	pushl %eax
-	pushl %ecx
-	pushl %edx
-	push %ds
-	push %es
-	push %fs
-	movl $0x10,%eax
-	mov %ax,%ds
-	mov %ax,%es
-	movl $0x17,%eax
-	mov %ax,%fs
-	movb $0x20,%al
-	outb %al,$0x20		# EOI to interrupt controller #1
-	xorl %eax,%eax
-	xchgl do_floppy,%eax
-	testl %eax,%eax
-	jne 1f
-	movl $unexpected_floppy_interrupt,%eax
+    pushl %eax
+    pushl %ecx
+    pushl %edx
+    push %ds
+    push %es
+    push %fs
+    movl $0x10,%eax
+    mov %ax,%ds
+    mov %ax,%es
+    movl $0x17,%eax
+    mov %ax,%fs
+    movb $0x20,%al
+    outb %al,$0x20		# EOI to interrupt controller #1
+    xorl %eax,%eax
+    xchgl do_floppy,%eax
+    testl %eax,%eax
+    jne 1f
+    movl $unexpected_floppy_interrupt,%eax
 1:	call *%eax		# "interesting" way of handling intr.
-	pop %fs
-	pop %es
-	pop %ds
-	popl %edx
-	popl %ecx
-	popl %eax
-	iret
+    pop %fs
+    pop %es
+    pop %ds
+    popl %edx
+    popl %ecx
+    popl %eax
+    iret
 
 parallel_interrupt:
-	pushl %eax
-	movb $0x20,%al
-	outb %al,$0x20
-	popl %eax
-	iret
+    pushl %eax
+    movb $0x20,%al
+    outb %al,$0x20
+    popl %eax
+    iret
