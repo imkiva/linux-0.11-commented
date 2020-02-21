@@ -214,7 +214,7 @@ sys_fork:
     pushl %esi
     pushl %edi
     pushl %ebp
-    pushl %eax
+    pushl %eax          # copy_process() 的第一个参数: nr
     call copy_process	# 这个函数接受了一堆参数，但这里没有压栈，
                         # 是因为进入 syscall 的时候，这些寄存器就已经在内核栈里了
     addl $20,%esp

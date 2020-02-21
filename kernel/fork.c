@@ -63,14 +63,14 @@ int copy_mem(int nr,struct task_struct * p)
 }
 
 /*
- *  Ok, this is the main fork-routine. It copies the system process
+ * Ok, this is the main fork-routine. It copies the system process
  * information (task[nr]) and sets up the necessary registers. It
  * also copies the data segment in it's entirety.
  */
 int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		long ebx,long ecx,long edx,
 		long fs,long es,long ds,
-		long eip,long cs,long eflags,long esp,long ss)
+		long eip,long cs,long eflags,long esp,long ss) // eip, cs, eflags, esp, ss 保存着用户态进程的信息
 {
 	struct task_struct *p;
 	int i;
