@@ -192,6 +192,8 @@ int do_execve(unsigned long * eip,long tmp,char * filename,
 	int sh_bang = 0;
 	unsigned long p=PAGE_SIZE*MAX_ARG_PAGES-4;
 
+	// eip[1] 是用户态的 CS
+	// 保证调用 execve 的地方的是用户态
 	if ((0xffff & eip[1]) != 0x000f)
 		panic("execve called from supervisor mode");
 	for (i=0 ; i<MAX_ARG_PAGES ; i++)	/* clear page-table */
@@ -341,6 +343,10 @@ restart_interp:
 	i = ex.a_text+ex.a_data;
 	while (i&0xfff)
 		put_fs_byte(0,(char *) (i++));
+	// iret 会使用栈中的 eip 恢复用户态的 eip
+	// 这里直接修改了栈中保存的“用与 iret 的 eip”
+	// 所以，当系统调用返回的时候，直接跳转到了新程序的入口
+	// 所以 execve() 成功时不会返回原程序。
 	eip[0] = ex.a_entry;		/* eip, magic happens :-) */
 	eip[3] = p;			/* stack pointer */
 	return 0;

@@ -199,8 +199,8 @@ timer_interrupt:
 
 .align 2
 sys_execve:
-    lea EIP(%esp),%eax
-    pushl %eax
+    lea EIP(%esp),%eax  # eax = esp + EIP, EIP = 0x1c
+    pushl %eax          # eax 此时保存着 iret 指令需要使用的用户态 eip 在栈中的地址
     call do_execve
     addl $4,%esp
     ret
