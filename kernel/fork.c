@@ -95,11 +95,16 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->cutime = p->cstime = 0;
 	p->start_time = jiffies;
 	p->tss.back_link = 0;
+
+	// 创建内核栈，esp0 和 ss0 是存储内核态信息的寄存器
+	// p 指向这页内存的一段，而内核栈指向这页内存的另一端
 	p->tss.esp0 = PAGE_SIZE + (long) p;
 	p->tss.ss0 = 0x10;
+
+	// 全部使用父进程寄存器中的值
 	p->tss.eip = eip;
 	p->tss.eflags = eflags;
-	p->tss.eax = 0;
+	p->tss.eax = 0;     // fork 对子进程返回 
 	p->tss.ecx = ecx;
 	p->tss.edx = edx;
 	p->tss.ebx = ebx;
@@ -113,6 +118,8 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	p->tss.ds = ds & 0xffff;
 	p->tss.fs = fs & 0xffff;
 	p->tss.gs = gs & 0xffff;
+
+	// 切换内存
 	p->tss.ldt = _LDT(nr);
 	p->tss.trace_bitmap = 0x80000000;
 	if (last_task_used_math == current)
@@ -122,6 +129,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 		free_page((long) p);
 		return -EAGAIN;
 	}
+	// 继承文件描述符
 	for (i=0; i<NR_OPEN;i++)
 		if ((f=p->filp[i]))
 			f->f_count++;
