@@ -104,7 +104,7 @@ int copy_process(int nr,long ebp,long edi,long esi,long gs,long none,
 	// 全部使用父进程寄存器中的值
 	p->tss.eip = eip;
 	p->tss.eflags = eflags;
-	p->tss.eax = 0;     // fork 对子进程返回 
+	p->tss.eax = 0;     // fork 对子进程返回 0
 	p->tss.ecx = ecx;
 	p->tss.edx = edx;
 	p->tss.ebx = ebx;
